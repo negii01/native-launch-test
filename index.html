@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ネイティブ起動テスト</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+  /* 構成: 1カラムの作業用ページ。上に設定、中央にファイル表、下に起動ログ */
+  :root {
+    --bg: #f6f8f8;
+    --surface: #ffffff;
+    --fg: #1b2a2e;
+    --muted: #5d6f74;
+    --line: #d5dfe1;
+    --accent: #0b6e72;
+    --accent-fg: #ffffff;
+    --excel: #1d6f42;
+    --text: #44546a;
+    --warn-bg: #fff4dc;
+    --warn-fg: #6b4a00;
+    --font-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101a1c; --surface: #172326; --fg: #e3eeef; --muted: #93a9ae;
+      --line: #2a3c40; --accent: #4fc3c8; --accent-fg: #07201f;
+      --excel: #5cc98a; --text: #9db4d3; --warn-bg: #3a2f10; --warn-fg: #f0d58a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101a1c; --surface: #172326; --fg: #e3eeef; --muted: #93a9ae;
+    --line: #2a3c40; --accent: #4fc3c8; --accent-fg: #07201f;
+    --excel: #5cc98a; --text: #9db4d3; --warn-bg: #3a2f10; --warn-fg: #f0d58a;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.7; padding-inline: 16px; padding-block: 28px 48px; }
+  .wrap { max-width: 860px; margin-inline: auto; display: flex; flex-direction: column; gap: 24px; }
+  h1 { font-size: 1.6rem; line-height: 1.3; margin: 0 0 4px; text-wrap: balance; }
+  h2 { font-size: 0.8rem; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+  p { margin: 0; }
+  .lead { color: var(--muted); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+  .settings { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; }
+  .settings label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .base { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; margin-top: 10px; }
+  .list { display: flex; flex-direction: column; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; padding-block: 14px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .row:last-child { padding-bottom: 0; }
+  .meta { min-width: 0; }
+  .fname { font-family: var(--font-mono); font-weight: 500; overflow-wrap: anywhere; }
+  .desc { color: var(--muted); font-size: 0.85rem; }
+  .tag { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0 8px; border-radius: 3px; border: 1px solid currentColor; margin-right: 8px; letter-spacing: 0.04em; }
+  .tag.excel { color: var(--excel); }
+  .tag.text { color: var(--text); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  button, a.btn { font: inherit; font-size: 0.88rem; padding: 7px 14px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; text-decoration: none; display: inline-block; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 700; }
+  button:hover, a.btn:hover { filter: brightness(0.94); }
+  button:focus-visible, a.btn:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .log { font-family: var(--font-mono); font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; min-height: 5.5em; max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { background: var(--warn-bg); color: var(--warn-fg); border-radius: 4px; padding: 10px 14px; font-size: 0.88rem; }
+  ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 0.88rem; }
+  @media (max-width: 560px) { .row { grid-template-columns: minmax(0, 1fr); } .actions { justify-content: flex-start; } }
+  @media (prefers-reduced-motion: no-preference) { button { transition: filter 0.12s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>ネイティブ起動テスト</h1>
+    <p class="lead">テキストとExcelのサンプルを置いています。「アプリで開く」を押すと、PCにインストールされたOfficeアプリが起動します。</p>
+  </header>
+
+  <div class="note" id="filewarn" hidden>いまは file:// で開いています。この状態では「アプリで開く」は動きません。https:// で公開した場所に置いて開いてください。</div>
+
+  <section class="panel" aria-labelledby="h-set">
+    <h2 id="h-set">開き方の設定</h2>
+    <div class="settings">
+      <label><input type="radio" name="mode" id="mode-edit" value="ofe" checked> 編集モード (ofe)</label>
+      <label><input type="radio" name="mode" id="mode-view" value="ofv"> 閲覧モード (ofv)</label>
+    </div>
+    <p class="base" id="base">ファイルの場所: </p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-files">
+    <h2 id="h-files">サンプルファイル</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section aria-labelledby="h-log">
+    <h2 id="h-log">起動ログ</h2>
+    <div class="log" id="log" role="log" aria-live="polite">まだ操作していません。</div>
+  </section>
+
+  <section class="panel">
+    <h2>うまく開かないとき</h2>
+    <ul class="tips">
+      <li>ExcelもWordも、ファイルの直接URLに認証なしで届く必要があります。ログインが必要な場所やリダイレクトの先では失敗します。</li>
+      <li>初回はブラウザに「このアプリを開きますか」と出ます。許可してください。</li>
+      <li>テキスト(.txt)は専用のURLスキームがないため、Wordで開きます。</li>
+      <li>URLスキームを止めている環境(ブラウザ設定やセキュリティ製品)では起動しません。そのときは「URIをコピー」で中身を確認できます。</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+  var FILES = [
+    { name: "sample1.xlsx", kind: "excel", size: 5116, desc: "売上サンプル(数式あり)" },
+    { name: "sample2.xlsx", kind: "excel", size: 5023, desc: "ユーザー一覧(3行)" },
+    { name: "sample1.txt",  kind: "text",  size: 114,  desc: "日本語のテキスト" },
+    { name: "sample2.txt",  kind: "text",  size: 29,   desc: "英数字のテキスト" }
+  ];
+
+  function absUrl(name) { return new URL("files/" + encodeURIComponent(name), location.href).href; }
+  function mode() { return document.getElementById("mode-view").checked ? "ofv" : "ofe"; }
+  function buildUri(f) {
+    var scheme = f.kind === "excel" ? "ms-excel" : "ms-word";
+    return scheme + ":" + mode() + "|u|" + absUrl(f.name);
+  }
+  function stamp() { return new Date().toLocaleTimeString("ja-JP", { hour12: false }); }
+  function log(msg) {
+    var el = document.getElementById("log");
+    if (el.dataset.empty !== "0") { el.textContent = ""; el.dataset.empty = "0"; }
+    el.textContent += "[" + stamp() + "] " + msg + "\n";
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function launch(f) {
+    var uri = buildUri(f);
+    if (location.protocol === "file:") {
+      log("注意: このページは file:// で開かれています。Excelはファイルを自分でURLから取りに行くため、https:// の場所に置かないと開けません。");
+    }
+    log("起動を要求: " + uri);
+    var left = false;
+    var onBlur = function () { left = true; };
+    window.addEventListener("blur", onBlur);
+    try { location.href = uri; } catch (e) { log("エラー: " + e.message); }
+    setTimeout(function () {
+      window.removeEventListener("blur", onBlur);
+      log(left ? "ブラウザの許可ダイアログなどでフォーカスが動きました。アプリが起動したとは限りません。"
+               : "フォーカスは動いていません。許可ダイアログの待ち、または起動できていない可能性があります。");
+    }, 2500);
+  }
+
+  function copyUri(f) {
+    var uri = buildUri(f);
+    var done = function () { log("URIをコピーしました: " + uri); };
+    var fail = function () { log("コピーできませんでした。手動で選択してください: " + uri); };
+    try { navigator.clipboard.writeText(uri).then(done, fail); } catch (e) { fail(); }
+  }
+
+  function fmt(n) { return n >= 1024 ? (n / 1024).toFixed(1) + " KB" : n + " B"; }
+
+  var list = document.getElementById("list");
+  FILES.forEach(function (f) {
+    var row = document.createElement("div");
+    row.className = "row";
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var top = document.createElement("div");
+    var tag = document.createElement("span");
+    tag.className = "tag " + f.kind;
+    tag.textContent = f.kind === "excel" ? "Excel" : "テキスト";
+    var nm = document.createElement("span");
+    nm.className = "fname";
+    nm.textContent = f.name;
+    top.appendChild(tag); top.appendChild(nm);
+    var ds = document.createElement("div");
+    ds.className = "desc";
+    ds.textContent = f.desc + " / " + fmt(f.size) + " / " + (f.kind === "excel" ? "Excelで開く" : "Wordで開く");
+    meta.appendChild(top); meta.appendChild(ds);
+
+    var act = document.createElement("div");
+    act.className = "actions";
+    var b1 = document.createElement("button");
+    b1.className = "primary"; b1.type = "button"; b1.textContent = "アプリで開く";
+    b1.addEventListener("click", function () { launch(f); });
+    var b2 = document.createElement("button");
+    b2.type = "button"; b2.textContent = "URIをコピー";
+    b2.addEventListener("click", function () { copyUri(f); });
+    var b3 = document.createElement("a");
+    b3.className = "btn"; b3.textContent = "ダウンロード";
+    b3.href = "files/" + encodeURIComponent(f.name); b3.setAttribute("download", f.name);
+    act.appendChild(b1); act.appendChild(b2); act.appendChild(b3);
+
+    row.appendChild(meta); row.appendChild(act);
+    list.appendChild(row);
+  });
+
+  if (location.protocol === "file:") document.getElementById("filewarn").hidden = false;
+  document.getElementById("base").textContent += new URL("files/", location.href).href;
+</script>
+
+</body>
+</html>
